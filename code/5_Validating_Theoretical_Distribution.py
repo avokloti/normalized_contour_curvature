@@ -4,7 +4,7 @@
 In this notebook, we show and validate the NCC probability distributions derived
 for Gaussian-correlated Gaussian random fields.
 
-Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2020)
+Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2021)
 """
 
 import numpy as np
@@ -16,20 +16,6 @@ from matplotlib import pyplot as plt
 import scipy.io
 import time
 import cvxpy as cp
-
-# smoothing parameter
-rho = 0.04
-
-# number of bins used in NCC histogram
-num_bins = 201
-
-# load in the mean NCC distribution for the animate images
-calculation_dir = '../calculations'
-
-# load and reinterpolate animate mean
-with open(stimuli_dir + '/animate_mean_aug15', 'rb') as pickle_file:
-    animate_mean = pickle.load(pickle_file)
-    animate_mean = np.interp(np.linspace(-1, 1, 201), np.linspace(-1, 1, 101), animate_mean)
 
 ## ---- COMPARE MONTE-CARLO WITH THEORETICAL DISTRIBUTION ---- ##
 
@@ -153,6 +139,8 @@ plt.ylabel(r'Probability Density $P(\hat{\kappa})$', fontsize=14)
 plt.title('Effect of Gaussian Filtering on NCC Distribution', fontsize=16)
 plt.legend([r'$\sigma = 0.0$', r'$\sigma = 0.2$', r'$\sigma = 0.5$', r'$\sigma = 1.0$', r'$\sigma = 2.0$'], fontsize=14)
 
+## ---- Optimizing for Optimal Correlation Length Distribution ---- ##
+
 def solveForXiDistribution(ncc_histogram):
     # get probability distribution
     kappaProb = ncc_histogram/np.sum(ncc_histogram)
@@ -175,7 +163,6 @@ def solveForXiDistribution(ncc_histogram):
     kappaProb_fit = x.value.T @ PMFs
     return x.value, kappaProb_fit
 
-## ---- Optimizing for Optimal Correlation Length Distribution ---- ##
 
 # smoothing parameter
 rho = 0.04
@@ -219,27 +206,26 @@ category_filenames = {'big_animate': 'big_animate_mean_ncc',
                       'big_inanimate': 'big_inanimate_mean_ncc',
                       'small_inanimate': 'small_inanimate_mean_ncc'}
 
+# calculations are stored here
+calculation_dir = '../calculations'
+
 # for each category, solve for distribution and plot
 group_means = {}
 xi_dists = {}
 for cat in category_filenames.keys():
-    with open(stimuli_dir + '/' + category_filenames[cat] + '.pickle', 'rb') as pickle_file:
+    with open(calculation_dir + '/' + category_filenames[cat] + '.pickle', 'rb') as pickle_file:
         group_mean = pickle.load(pickle_file)
         group_means[cat] = np.interp(np.linspace(-1, 1, 201), np.linspace(-1, 1, 101), group_mean)
         xi_dists[cat] = solveForXiDistribution(group_means[cat])
 
-# UPDATED VERSION
+
+## ---- Plot the results ---- ##
 
 class_names = {'big_animate': 'Large Animate', 'small_animate': 'Small Animate',
                'big_inanimate': 'Large Inanimate', 'small_inanimate': 'Small Inanimate'}
 
 peak_names_1 = [r'$p^{\xi}_1$', r'$p^{\xi}_2$', r'$p^{\xi}_3$', r'$p^{\xi}_4$']
 peak_names_2 = [r'$\Xi \ p^{\xi}_1$', r'$\Xi \ p^{\xi}_2$', r'$\Xi \ p^{\xi}_3$', r'$\Xi \ p^{\xi}_4$']
-
-plt.figure(figsize=(13, 16))
-
-for cat in category_filenames.keys():
-  print(np.sum(xi_dists[cat][0].T @ PMFs))
 
 xi_dist_splits = {}
 xi_dist_splits['big_animate'] = [0, 7, 25, 400]
@@ -248,9 +234,9 @@ xi_dist_splits['big_inanimate'] = [0, 7, 20, 70, 400]
 xi_dist_splits['small_inanimate'] = [0, 7, 20, 50, 400]
 
 i = 0
+plt.figure(figsize=(13, 16))
 for cat in category_filenames.keys():
     plt.subplot(4, 2, 2 * i + 1)
-    #plt.plot(xi_dists[cat][0])
     plt.title(class_names[cat], fontsize=18)
     plt.xlabel(r'Scaled Correlation Length $\xi$', fontsize=16)
     plt.ylabel(r'Probability Density $P(\xi)$', fontsize=16)
@@ -260,9 +246,6 @@ for cat in category_filenames.keys():
     plt.title(class_names[cat], fontsize=18)
     plt.ylabel(r'Probability Density $P(\hat{\kappa})$', fontsize=16)
     plt.xlabel(r'Normalized Contour Curvature $\hat{\kappa}$', fontsize=16)
-    #plt.ylim([0, 2])
-    #plt.plot(group_means[cat]/(dKappa * np.sum(group_means[cat])), label='Original Group Mean')
-    #plt.plot(xi_dists[cat][1]/(dKappa * np.sum(xi_dists[cat][1])), label='Model')
     plt.plot(kappaNormEdges[1:], group_means[cat]/(dKappaNorm * np.sum(group_means[cat])), 'k--', label='Data')
     plt.plot(kappaNormEdges[1:], xi_dists[cat][1]/(dKappaNorm * np.sum(xi_dists[cat][1])), 'k', label='Model Fit')
 
@@ -284,3 +267,4 @@ for cat in category_filenames.keys():
     i += 1
 
 plt.tight_layout()
+plt.show()
