@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """5. Validating Theoretical Distribution
 
-In this notebook, we show and validate the NCC probability distributions derived
+This script demonstrates and numerically validates the NCC probability distributions derived
 for Gaussian-correlated Gaussian random fields.
-
-Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2021)
 """
 
 import numpy as np

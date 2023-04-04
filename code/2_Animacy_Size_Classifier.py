@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
 """2. Classification of Size and Animacy
 
-This notebook implements a Bayesian binary classifier to distinguish between
+This script implements a Bayesian binary classifier to distinguish between
 the animacy (animate vs inanimate) and size (large vs small) object categories
 using the normalized contour curvature (NCC) descriptor.
-
-Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2020)
 """
 
 import numpy as np
@@ -17,125 +14,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix
 
-def contourCurvature(image, rho, numBins, background_threshold = 5, plot=False, cutoff=True, add_padding=False):
-    # --- SETTINGS --- #
-    
-    # histogram bin edges
-    dKappa = 2/numBins
-    kappaMin = -1
-    kappaMax = 1
-    binEdges = np.linspace(kappaMin, kappaMax, numBins+1)
-
-    #bins = np.hstack((kappaMin, binEdges[1:-1] + dKappa/2, kappaMax));
-    bins = binEdges[0:-1] + dKappa/2
-
-    # --- Retrieve Image Properties --- #
-
-    # obtain image dimensions #
-    [numRows, numCols] = image.shape
-    imageLength = np.max((numRows, numCols))
-
-    # set pixel spacing #
-    dx = 1 / imageLength
-
-    # set filter scale #
-    sigma = rho * imageLength
-
-    # --- Apply Gaussian Filter --- #
-
-    # precompute filter sized based on Matlab standard #
-    Q = int(8 * np.ceil(2*sigma) + 1)
-
-    # pad image to ensure nothing is lost during filtering #
-    padding = int(np.floor(Q/2))
-    paddedImage = cv2.copyMakeBorder(image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=0)
-    
-    # filter
-    f = cv2.GaussianBlur(paddedImage, (Q, Q), sigma, sigma)
-
-    # --- Calculate Contour Curvature --- #
-
-    # shift image #
-    f_N = np.roll(f, -1, 0)
-    f_E = np.roll(f, -1, 1)
-    f_S = np.roll(f, 1, 0)
-    f_W = np.roll(f, 1, 1)
-
-    f_NE = np.roll(np.roll(f, -1, 0), -1, 1)
-    f_SE = np.roll(np.roll(f, 1, 0), -1, 1)
-    f_SW = np.roll(np.roll(f, 1, 0), 1, 1)
-    f_NW = np.roll(np.roll(f, -1, 0), 1, 1)
-
-    # construct derivatives #
-    f_x = (f_E - f_W)/(2 * dx)
-    f_y = (f_N - f_S)/(2 * dx)
-    f_xx = (f_E - 2*f + f_W)/(dx**2)
-    f_yy = (f_N - 2*f + f_S)/(dx**2)
-    f_xy = (f_NE - f_SE - f_NW + f_SW)/(4 * dx**2)
-
-    # compute contour curvature #
-    kappa = f_y**2 * f_xx + f_x**2 * f_yy - 2 * f_x * f_y * f_xy
-    kappa = kappa * (f_x**2 + f_y**2)**(-3/2)
-
-    # convert to normalized curvature #
-    kappa = -kappa / (2 + np.abs(kappa))
-
-    # set flat patches to - dKappa #
-    kappa[np.isnan(kappa)] = -dKappa
-
-    # set background pixels to NaN #
-    mask = f < background_threshold
-    kappa[mask] = np.nan
-
-    # --- Calculate Histogram --- #
-
-    # compute histogram for well-defined curavtures #
-    kappaHist = np.histogram(np.ndarray.flatten(kappa), binEdges)
-
-    # include flat regions #
-    #flatCounts = np.sum(np.ndarray.flatten(kappa) == -dKappa);
-    flatCounts = 0
-
-    #kappaHist = (np.insert(kappaHist[0], 0, flatCounts), np.insert(kappaHist[1], 0, -dKappa))
-
-    # convert histogram to probability distribution #
-    kappaDist = kappaHist[0] / np.sum( dKappa * kappaHist[0])
-
-    if (plot):
-      plt.figure(figsize=(16, 5))
-
-      plt.subplot(1, 2, 1)
-      plt.pcolor(kappa)
-      plt.gca().invert_yaxis()
-      plt.colorbar()
-      plt.title('Normalized Contour Curvature of Image')
-
-      plt.subplot(1, 2, 2)
-      plt.plot(bins, kappaDist)
-      plt.title('Probability Density of NCC')
-      plt.xlabel('Normalized Contour Curvature')
-      plt.ylabel('Probability Density')
-
-    if (cutoff):
-      return kappa[padding:-padding, padding:-padding], kappaDist, bins, f[padding:-padding, padding:-padding]
-    elif (add_padding):
-      return kappa, kappaDist, bins, f, paddedImage
-    else:
-      return kappa, kappaDist, bins, f
-
-def processImage(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = image.astype('float')
-    image = 255 - image
-    return image
-
-def processImageBlackBG(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = image.astype('float')
-    return image
-
+# import functions
+from functions import *
 
 ## ----- Prepare Data Paths and Labels, and Calculate Histograms ----- ##
 
@@ -168,7 +48,7 @@ num_images = len(all_images)
 labels_animacy = [1] * int(num_images/2) + [0] * int(num_images/2)
 labels_size = [1] * int(num_images/4) + [0] * int(num_images/4) + [1] * int(num_images/4) + [0] * int(num_images/4)
 
-# list of "rho" smoothingn parameters to iterate through
+# list of "rho" smoothing parameters to iterate through
 rho_list = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1 ]
 num_bins = 101
 

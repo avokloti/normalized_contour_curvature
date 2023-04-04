@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-1. Examples And Interpretation of Normalized Contour Curvature
+"""1. Examples And Interpretation of Normalized Contour Curvature
 
-This notebook shows the application and interpretation of normalized contour
+This script shows the application and interpretation of normalized contour
 curvature (NCC) when applied to a dataset of object images, varying in animacy and size.
-
-Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2020)
 """
 
 import numpy as np
@@ -14,123 +10,8 @@ import cv2
 import os
 import pickle
 
-
-def contourCurvature(image, rho, numBins=101, bg_threshold=5, plot=False, cutoff=True, add_padding=False):
-    # --- Settings --- #
-    
-    # histogram bin edges
-    dKappa = 2/numBins
-    kappaMin = -1
-    kappaMax = 1
-    binEdges = np.linspace(start=kappaMin, stop=kappaMax, num=numBins+1)
-    
-    #bins = np.hstack((kappaMin, binEdges[1:-1] + dKappa/2, kappaMax));
-    bins = binEdges[0:-1] + dKappa/2
-    
-    # --- Retrieve Image Properties --- #
-    
-    # obtain image dimensions #
-    [numRows, numCols] = image.shape
-    imageLength = np.max((numRows, numCols))
-    
-    # set pixel spacing #
-    dx = 1 / imageLength
-    
-    # set filter scale #
-    sigma = rho * imageLength
-    
-    # --- Apply Gaussian Filter --- #
-    
-    # precompute filter sized based on Matlab standard #
-    Q = int(8 * np.ceil(2*sigma) + 1)
-    
-    # pad image to ensure nothing is lost during filtering #
-    padding = int(np.floor(Q/2))
-    paddedImage = cv2.copyMakeBorder(image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=0)
-    
-    # filter
-    f = cv2.GaussianBlur(paddedImage, (Q, Q), sigma, sigma)
-    
-    # --- Calculate Contour Curvature --- #
-    
-    # shift image #
-    f_N = np.roll(f, -1, 0)
-    f_E = np.roll(f, -1, 1)
-    f_S = np.roll(f, 1, 0)
-    f_W = np.roll(f, 1, 1)
-    
-    f_NE = np.roll(np.roll(f, -1, 0), -1, 1)
-    f_SE = np.roll(np.roll(f, 1, 0), -1, 1)
-    f_SW = np.roll(np.roll(f, 1, 0), 1, 1)
-    f_NW = np.roll(np.roll(f, -1, 0), 1, 1)
-    
-    # construct derivatives #
-    f_x = (f_E - f_W)/(2 * dx)
-    f_y = (f_N - f_S)/(2 * dx)
-    f_xx = (f_E - 2*f + f_W)/(dx**2)
-    f_yy = (f_N - 2*f + f_S)/(dx**2)
-    f_xy = (f_NE - f_SE - f_NW + f_SW)/(4 * dx**2)
-    
-    # compute contour curvature #
-    kappa = f_y**2 * f_xx + f_x**2 * f_yy - 2 * f_x * f_y * f_xy
-    kappa = kappa * (f_x**2 + f_y**2)**(-3/2)
-    
-    # convert to normalized curvature #
-    kappa = -kappa / (2 + np.abs(kappa))
-    
-    # set flat patches to - dKappa #
-    kappa[np.isnan(kappa)] = -dKappa
-    
-    # set background pixels to NaN #
-    mask = f < bg_threshold
-    kappa[mask] = np.nan
-    
-    # --- Calculate Histogram --- #
-    
-    # compute histogram for well-defined curavtures #
-    kappaHist = np.histogram(np.ndarray.flatten(kappa), binEdges)
-    
-    # include flat regions #
-    #flatCounts = np.sum(np.ndarray.flatten(kappa) == -dKappa);
-    #kappaHist = (np.insert(kappaHist[0], 0, flatCounts), np.insert(kappaHist[1], 0, -dKappa))
-    
-    # convert histogram to probability distribution #
-    kappaDist = kappaHist[0] / np.sum( dKappa * kappaHist[0])
-    
-    if (plot):
-        plt.figure(figsize=(16, 5))
-        
-        plt.subplot(1, 2, 1)
-        plt.pcolor(kappa)
-        plt.gca().invert_yaxis()
-        plt.colorbar()
-        plt.title('Normalized Contour Curvature of Image')
-        
-        plt.subplot(1, 2, 2)
-        plt.plot(bins, kappaDist)
-        plt.title('Probability Density of NCC')
-        plt.xlabel('Normalized Contour Curvature')
-        plt.ylabel('Probability Density')
-    
-    if (cutoff):
-        return kappa[padding:-padding, padding:-padding], kappaDist, bins, f[padding:-padding, padding:-padding]
-    elif (add_padding):
-        return kappa, kappaDist, bins, f, paddedImage
-    else:
-        return kappa, kappaDist, bins, f
-
-def processImage(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = image.astype('float')
-    image = 255 - image
-    return image
-
-def processImageBlackBG(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = image.astype('float')
-    return image
+# import functions
+from functions import *
 
 ## ----- Prepare Data Paths and Labels ----- ##
 
@@ -265,7 +146,6 @@ plt.tight_layout()
 
 ## ----- Calculate And Save NCC Distributions For Each Of Four Subgroups ----- ##
 
-#categories = ['/Big-Animate/', '/Small-Animate/', '/Big-Inanimate/', '/Small-Inanimate/']
 category_filenames = ['big_animate_mean_ncc', 'small_animate_mean_ncc', 'big_inanimate_mean_ncc', 'small_inanimate_mean_ncc']
 
 for i in range(4):
@@ -315,7 +195,7 @@ plt.rcParams.update({'font.size': 14})
 plt.figure(figsize = (8, 12))
 for i in range(4):
     image = processImage(files[i])
-    kappa, kappaDist, bins, f = contourCurvature(image, rho=0.04, numBins=101, bg_threshold=5)
+    kappa, kappaDist, bins, f = contourCurvature(image, rho=0.04, numBins=101, background_threshold=5)
 
     plt.subplot(4, 2, 2 * i + 1)
     plt.imshow(image, cmap='gray_r')
@@ -330,9 +210,6 @@ plt.tight_layout()
 
 categories_fig1 = ['/Small-Animate/', '/Small-Inanimate/', '/Big-Animate/', '/Big-Inanimate/']
 
-#filenames = ['1.59_hedgehog.jpg', '1.29_ASERVICEB.jpg', '1.18_ostrich.jpg', '1.78_schoolbus.jpg']
-#filenames = ['0.72_owl2.jpg', '1.48_wristwatch.jpg', '1.18_ostrich.jpg', '1.01_6.2_obj_2769.jpg']
-#filenames = ['0.90_bunny2.jpg', '1.50_Aspoolofthre6.jpg', '0.96_hoofed-moose1.jpg', '0.47_telephonebooth.jpg']
 filenames = ['1.59_hedgehog.jpg', '1.29_ASERVICEB.jpg', '0.96_hoofed-moose1.jpg', '0.47_telephonebooth.jpg']
 titles = ['Hedgehog NCC', 'Bell NCC', 'Moose NCC', 'Telephone Booth NCC']
 files = [stimuli_dir + categories_fig1[i] + filenames[i] for i in range(4)]
@@ -342,7 +219,7 @@ plt.rcParams.update({'font.size': 14})
 plt.figure(figsize = (13, 6))
 for i in range(4):
     image = processImage(files[i])
-    kappa, kappaDist, bins, f = contourCurvature(image, rho=0.04, numBins=101, bg_threshold=5)
+    kappa, kappaDist, bins, f = contourCurvature(image, rho=0.04, numBins=101, background_threshold=5)
     plt.subplot(2, 4, 2 * i + 1)
     plt.imshow(image, cmap='gray_r')
     plt.axis('off')

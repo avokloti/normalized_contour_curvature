@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
 """6. Generative Model
 
-This notebook implements the generative model for constructing artificial images with NCC statistics matching a given distribution.
-
-Andrew Marantan, Irina Tolkova, and Lakshminarayanan Mahadevan (2021)
+This script implements the generative model for constructing artificial images with NCC statistics matching a given distribution.
 """
 
 import numpy as np
@@ -13,7 +10,7 @@ from matplotlib import pyplot as plt
 from scipy.linalg import sqrtm
 
 
-def contourCurvature(image, numBins, plot=False):
+def contourCurvatureNoFilter(image, numBins, plot=False):
     # --- SETTINGS --- #
     
     # histogram bin edges
@@ -184,8 +181,7 @@ def generateImage(xiVec, xiDist, imageSize, patchSize):
           # patch pixel positions #
           patch_X = X[minRow:maxRow, minCol:maxCol]
           patch_Y = Y[minRow:maxRow, minCol:maxCol]
-
-          # extract boundary information #
+          
           # initialize boundary arrays #
           bound_W_X = []
           bound_W_Y = []
@@ -309,7 +305,7 @@ for cat in category_filenames.keys():
     cutImage[images[cat] < -1] = np.nan
     
     # calculate NCC image and histogram #
-    kappaImage, kappaHist, bins = contourCurvature(cutImage, numBins)
+    kappaImage, kappaHist, bins = contourCurvatureNoFilter(cutImage, numBins)
     
     # store data #
     cutImages[cat] = cutImage
